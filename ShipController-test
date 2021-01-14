@@ -1,0 +1,19 @@
+#lang racket
+(require 2htdp/image)
+(require 2htdp/universe)
+
+(define ship (triangle 15 "solid" "red"))
+(define move-ship (lambda (n key)
+                    (cond [(key=? key "left")(sub1 n)]
+                          [(key=? key "right")(add1 n)]
+                          [else n]
+                    )
+                    ))
+
+(define render (lambda (t) (place-image ship t 87
+                                        (empty-scene 100 100)
+                                        )))
+(big-bang 50
+  [to-draw render]
+  [on-key move-ship]
+  )

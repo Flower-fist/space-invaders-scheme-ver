@@ -1,0 +1,129 @@
+#lang racket
+(require 2htdp/universe)
+(require 2htdp/image)
+(struct obj (image x y w h))
+(define draw-loo (lambda(loo ground)
+                   (if(empty? loo)
+                      ground
+                      (place-image (obj-image (car (flatten loo))) (obj-x (car (flatten loo)))(obj-y (car (flatten loo)))
+                      (draw-loo (cdr loo) ground)
+                    ))
+ ))
+(define draw-swarm (lambda(loo ground)
+                   (if(empty? loo)
+                      ground
+                      (place-image (obj-image (car(car(car loo)))) (obj-x (car (car loo)))(obj-y (car (car loo)))
+                      (draw-loo (cdr loo) ground)
+                    ))
+ ))
+(define check-1 (lambda (x y obj)
+                   (and
+                   (and (> x (obj-x obj))(> x (+ (obj-x obj) (obj-w obj))))
+                   (and (> y (obj-y obj))(> y (+ (obj-y obj) (obj-h obj))))
+                   )))
+(define check-all (lambda (obj1 obj2)
+                     (if (equal? (filter check-1 (list (obj-x obj1)
+                                                       (obj-y obj1)
+                                                       (+ (obj-x obj1) (obj-w obj1))
+                                                       (+ (obj-y obj1) (obj-h obj1))
+                                                       )) empty)
+                         false
+                         true
+                     )
+                     ))
+(define shipi (triangle 15 "solid" "green"))
+(define laseri (triangle 5 "solid" "green"))
+(define crabi (circle 7.5 "solid" "white"))
+(define bunki (square 15 "solid" "green"))
+
+(struct wolrd (player ammo laser bunkers swarm dir score))
+
+(define fire (lambda (ammo)
+               "fired"
+               ))
+
+
+(define move-l (lambda (obji)
+                 (obj (obj-image obji)(sub1(obj-x obji))(obj-y obji)(obj-w obji)(obj-h obji))
+                 ))
+
+(define move-r (lambda (obji)
+                 (obj (obj-image obji)(add1(obj-x obji))(obj-y obji)(obj-w obji)(obj-h obji))
+                 ))
+
+(define move-d (lambda (obji)
+                 (obj (obj-image obji)(obj-x obji)(sub1(obj-y obji))(obj-w obji)(obj-h obji))
+                 ))
+
+(define move-u (lambda (obji)
+                 (obj (obj-image obji)(obj-x obji)(add1(obj-y obji))(obj-w obji)(obj-h obji))
+                 ))
+
+(define handle-key (lambda (s key)
+                    (cond [(key=? key "left")(wolrd (move-l(wolrd-player s))(wolrd-ammo s)(wolrd-bunkers s)(wolrd-swarm s)(wolrd-dir s))]
+                          [(key=? key "right")(wolrd (move-r(wolrd-player s))(wolrd-ammo s)(wolrd-bunkers s)(wolrd-swarm s)(wolrd-dir s))]
+                          [(key=? key "space")(wolrd (wolrd-player s)(fire 1)(wolrd-bunkers s)(wolrd-swarm s)(wolrd-dir s))]
+                          [else s])))
+
+(define move-swarm (lambda (s)
+                    (cond [(equal? (wolrd-dir "left"))(apply move-l s)]
+                          [(equal? (wolrd-dir "right"))(apply move-r s)]
+                          [(equal? (wolrd-dir "down"))(apply move-d s)]
+                    ) 
+                    ))
+(define crab (lambda (i x y)
+               (obj i x y 15 15)
+               ))
+(define row (lambda (i x y)
+                    (list (crab i x y)(crab i (+ x 40) y)(crab i (+ x 80) y))
+                    ))
+(define swarm (lambda ()
+                    (list
+                    (row crabi 10 10)
+                    (row crabi 40 10)
+                    (row crabi 70 10)
+                    (row crabi 100 10)
+                    )))
+(define background (square 150 "solid" "black"))
+(define init (wolrd (crab shipi 75 140) "ready" (void) (row bunki 35 120) (swarm) 0 0))
+(define lasering-alien
+  (lambda (alien laser)
+        (not (check-all alien laser))
+        ))
+(define lasering-swarm
+  (lambda (swarm laser)
+        (filter swarm lasering-alien)
+        ))
+(define render
+  (lambda (s)
+    (let ((bunked (draw-loo (wolrd-bunkers s) background)))
+      (let ((swarmed (draw-loo (wolrd-swarm s) bunked)))
+        (let ((lasered
+               (if (equal? (wolrd-laser s) (void))
+               swarmed
+               (place-image laseri  (obj-x (wolrd-laser s)) (obj-y (wolrd-laser s)) swarmed)
+               )))
+        (place-image shipi  (obj-x (wolrd-player s)) (obj-y (wolrd-player s))lasered)
+        )
+      )
+    )))
+(define update
+  (lambda s
+    (let
+        (
+         (player (wolrd-player s))
+         (ammo (wolrd-ammo s))
+         (laser (move-u (wolrd-laser s)))
+         (bunkers (wolrd-bunkers s))
+         (swarm (move-swarm (wolrd-swarm s)))
+         (dir (wolrd-dir s))
+         (score (wolrd-score s))
+        )
+        (wolrd player ammo laser bunkers swarm dir score)
+    )
+  ))
+
+(big-bang init
+  (to-draw render)
+  (on-tick update)
+  (on-key handle-key))
